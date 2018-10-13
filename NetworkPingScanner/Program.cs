@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Threading.Tasks;
 
 namespace NetworkPingScanner
@@ -19,32 +20,23 @@ namespace NetworkPingScanner
         {
             await Parser.Default.ParseArguments<Options>(args)
                 .MapResult(async (Options opts) => {
-                    var tasks = new List<Task<(IPAddress, bool)>>();
+                    var tasks = new List<Task<IpScanResult>>();
 
                     Console.WriteLine("Pinging... " + opts.Timeout);
 
                     for (byte i = 1; i < 255; i++)
                     {
                         var ipAddress = new IPAddress(new byte[] { 192, 168, 0, i });
-                        tasks.Add(Ping(ipAddress, opts.Timeout));
+                        tasks.Add(new IpScanner().Scan(ipAddress, opts.Timeout));
                     }
 
-                    (IPAddress iPAddress, bool success)[] pingResults = await Task.WhenAll(tasks);
+                    IpScanResult[] pingResults = await Task.WhenAll(tasks);
 
-                    foreach (var pingResult in pingResults.Where(p => p.success))
+                    foreach (var pingResult in pingResults.Where(p => p.Success))
                     {
-                        Console.WriteLine($"* {pingResult.iPAddress}");
+                        Console.WriteLine($"* {pingResult.IpAddress} {pingResult.DnsName}");
                     }
                 }, errs => Task.FromResult(0));
-        }
-
-        private static async Task<(IPAddress, bool)> Ping(IPAddress iPAddress, int timeout)
-        {
-            using(var ping = new Ping())
-            {
-                var pingReply = await ping.SendPingAsync(iPAddress, timeout);
-                return (iPAddress, pingReply.Status == IPStatus.Success);
-            }
         }
     }
 }
